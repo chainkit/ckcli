@@ -1,0 +1,110 @@
+#!/usr/bin/env python
+
+try:
+    import click, json, os, requests
+except ImportError:
+    raise
+    print("Python Dependencies Missing. Please run 'pip install -r requirements.txt'")
+    exit(1)
+
+CKUSER=os.getenv('CKUSER')
+CKPASS=os.getenv('CKPASS')
+CKTOKEN=os.getenv('CKTOKEN')
+CKSTORAGE=os.getenv('CKSTORAGE', 'pencil')
+CKAUTH=os.getenv('CKAUTH')
+CKEP=os.getenv('CKEP', 'https://api.chainkit.com')
+
+@click.group()
+def cli():
+   pass
+
+def get_token(username, password, server):
+  if not username or not password:
+    click.echo("Please pass Username (CKUSER), Password (CKPASS) or Token (CKTOKEN)")
+    exit(1)
+  if not server:
+    click.echo("Please pass Server (CKEP)")
+    exit(1)
+
+  d = {"userId": username, "password": password}
+
+  headers = {'Content-Type': 'application/json'}
+  r = requests.post(server+'/token', headers=headers, json=d)
+  j = r.json()
+
+  token = j.get("data",{}).get("accessToken")
+  if not token:
+    error = j.get("errorMessage", "Unable to get token.")
+    click.echo(error)
+    exit(1)
+  return token
+
+# Get an API access token
+@cli.command(name='token' , help='Get an API token')
+@click.option('--username', '-u', required=True, default=CKUSER, help='Chainkit User Id')
+@click.option('--password', '-p', required=True, default=CKPASS, help='Chainkit Password')
+@click.option('--server'  , '-s', required=True, default=CKEP, help='The ChainKit API')
+def token(username, password, server):
+  token = get_token(username, password, server)
+  click.echo("ChainKit API Token for "+username+": "+token)
+
+# Register a hash
+@cli.command(name='register' , help='Register a hashed entity with the server')
+@click.option('--username'   , '-u', default=CKUSER, help='Chainkit User Id')
+@click.option('--password'   , '-p', default=CKPASS, help='Chainkit Password')
+@click.option('--token'      , '-t', default=CKTOKEN, help='Chainkit Access Token')
+@click.option('--server'     , '-s', required=True, default=CKEP, help='The ChainKit API')
+@click.option('--backend'    , '-b', required=True, default=CKSTORAGE, help='The storage backend [pencil|private|concord|public]')
+@click.option('--hash'       , '-h', required=True, help='A hash of your data')
+@click.option('--description', '-d', help='Description of Hash', default='Auto-Commited by Chainkit')
+def register(username, password, token, server, backend, hash, description):
+  token = token or get_token(username, password, server)
+  description = description or 'Auto-Committed by Chainkit'
+
+  d = { "hash": hash, "storage": backend, "description": description }
+
+  headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer '+token}
+  r = requests.post(server+'/register', headers=headers, json=d)
+  j = r.json()
+  click.echo("Your Entity ID is: "+ str(j["assetId"]))
+
+# Verify a hash against an entity
+@cli.command(name='verify', help='Verify an entity hash')
+@click.option('--username', '-u', default=CKUSER, help='Chainkit User Id')
+@click.option('--password', '-p', default=CKPASS, help='Chainkit Password')
+@click.option('--token'   , '-t', default=CKTOKEN, help='Chainkit Access Token')
+@click.option('--server'  , '-s', required=True, default=CKEP, help='The ChainKit API')
+@click.option('--backend' , '-b', required=True, default=CKSTORAGE, help='The storage backend [pencil|private|concord|public]')
+@click.option('--hash'    , '-h', required=True, help='The hash of your data')
+@click.option('--id'      , '-i', required=True, help='The entity id (returned during registration)')
+def verify(username, password, token, server, backend, hash, id):
+  token = token or get_token(username, password, server)
+
+  headers = {'Authorization': 'Bearer '+token}
+  r = requests.get(server+'/verify/'+id+'?storage='+backend+'&hash='+hash, headers=headers)
+  j = r.json()
+
+  if j.get('verified'):
+    click.echo("The hash '"+hash+"' has successfully verified against the entity '"+id+"'")
+    exit(0)
+  else:
+    click.echo("The hash '"+hash+"' has FAILED verification against the entity '"+id+"'")
+    exit(1)
+
+# Get all registered entities
+@cli.command(name='get'   , help='Get all registered entities for a user')
+@click.option('--username', '-u', default=CKUSER, help='Chainkit User Id')
+@click.option('--password', '-p', default=CKPASS, help='Chainkit Password')
+@click.option('--token'   , '-t', default=CKTOKEN, help='Chainkit Access Token')
+@click.option('--server'  , '-s', required=True, default=CKEP, help='The ChainKit API')
+def get(username, password, token, server):
+  token = token or get_token(username, password, server)
+
+  headers = {'Authorization': 'Bearer '+token}
+  r = requests.get(server+'/getEntityId/', headers=headers)
+  j = r.json()
+
+  click.echo(json.dumps(j, indent=4, sort_keys=True))
+
+if __name__ == '__main__':
+  cli()

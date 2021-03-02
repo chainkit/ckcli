@@ -1,4 +1,4 @@
-# ckcli
+# Chainkit CLI - ckcli
 
 # Overview
 
@@ -8,17 +8,19 @@ ChainKit facilitates the registration and later validation of the integirty of d
 
 # Usage
 ```bash
-    pip3 install -r requirements.txt
-    ./ckcli.py --help
-    ./ckcli.py [command] --help
+    pip install -r requirements.txt
+    ckcli --help
+    ckcli [command] --help
 ```
 
 ## Obtain an Auth Token
 
-In order to interact with ChainKit you must provide your username and password to get an auth token. Set the auth token in the CKTOKEN environment variable with the following command:
+In order to interact with ChainKit you must provide your username and
+password to get an auth token. Set the auth token in the CKTOKEN
+environment variable with the following command:
 
 ```bash
-    export CKTOKEN=$(./ckcli.py token --username [username] --password [password] | awk '{print $2}')
+    export CKTOKEN=$(ckcli token --username [username] --password [password] | awk '{print $2}')
 ```
 
 ## Register an Entity
@@ -26,7 +28,8 @@ In order to interact with ChainKit you must provide your username and password t
 To register a hashed entity with the server, you supply your token and a hash of your asset. (this could be a file hash or anything really)
 
 ```bash
-    HASH=$(md5<<<'MySpecialText') ./ckcli.py register --token $CKTOKEN --hash $HASH
+    HASH=$(echo -n 'MySpecialText'| openssl sha256 | awk '{print $2}')
+    ckcli register --hash $HASH
 ```
 
 This will return an "Entity ID" which you can later use to...
@@ -36,12 +39,12 @@ This will return an "Entity ID" which you can later use to...
 Provide the hash and the entity id returned during registration in order to verify the integrity of your hash:
 
 ```bash
-./ckcli.py verify --token $CKTOKEN --hash $HASH --id [entity_id]
+    ckcli verify --hash $HASH --id [entity_id]
 
 ```
 
 ## Get All Registered Entities
 
 ```bash
-    ./ckcli.py get --token $CKTOKEN
+    ckcli get
 ```
