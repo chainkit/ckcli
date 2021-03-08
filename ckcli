@@ -2,8 +2,7 @@
 
 try:
     import click, json, os, requests
-except ImportError:
-    raise
+except:
     print("Python Dependencies Missing. Please run 'pip install -r requirements.txt'")
     exit(1)
 
